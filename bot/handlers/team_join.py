@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -11,6 +13,7 @@ from bot.handlers.menu import show_menu
 from bot.templates import render
 from bot.validators import validate_team_id
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -23,6 +26,7 @@ async def on_join(cb: CallbackQuery, state: FSMContext, conn: asyncpg.Connection
     await cb.answer()
     existing = await db_teams.get_team_by_participant(conn, cb.from_user.id)
     if existing:
+        logger.info("user %s: join team while already in team %s", cb.from_user.id, existing.id)
         await cb.message.answer(render("error_already_in_team"), parse_mode="HTML")  # type: ignore[union-attr]
         return
     await state.set_state(JoinTeamFSM.team_id)
@@ -34,18 +38,22 @@ async def on_team_id(message: Message, state: FSMContext, conn: asyncpg.Connecti
     raw = (message.text or "").strip().lower()
     err = validate_team_id(raw)
     if err:
+        logger.info("user %s: invalid team id %r", message.from_user.id, raw)  # type: ignore[union-attr]
         await message.answer(err)
         return
 
     team = await db_teams.get_team(conn, raw)
     if team is None:
+        logger.info("user %s: team %s not found", message.from_user.id, raw)  # type: ignore[union-attr]
         await message.answer(render("error_team_not_found"), parse_mode="HTML")
         return
     if len(team.members) >= 3:
+        logger.info("user %s: team %s is full", message.from_user.id, raw)  # type: ignore[union-attr]
         await message.answer(render("error_team_full"), parse_mode="HTML")
         return
 
     await db_teams.add_member(conn, raw, message.from_user.id)  # type: ignore[union-attr]
+    logger.info("user %s: joined team %s", message.from_user.id, raw)  # type: ignore[union-attr]
     await message.answer(
         render("team_joined", team_name=team.name), parse_mode="HTML"
     )

@@ -9,7 +9,8 @@ from bot.config import settings
 from bot.db.pool import create_pool, close_pool
 from bot.db.fsm_storage import PgFSMStorage
 from bot.middlewares import DbMiddleware, FSMResetMiddleware, register_valid_states
-from bot.handlers import start, registration, menu, team_create, team_join, team_info, team_leave
+from bot.handlers import start, registration, menu, team_create, team_join, team_info, team_leave, fallback
+from bot.templates import render
 
 
 async def main() -> None:
@@ -21,6 +22,7 @@ async def main() -> None:
     await create_pool()
     storage = PgFSMStorage()
     bot = Bot(token=settings.telegram_token)
+    await bot.set_my_description(render("bot_description"))
     dp = Dispatcher(storage=storage)
 
     register_valid_states()
@@ -38,6 +40,7 @@ async def main() -> None:
         team_join.router,
         team_info.router,
         team_leave.router,
+        fallback.router,
     )
 
     try:

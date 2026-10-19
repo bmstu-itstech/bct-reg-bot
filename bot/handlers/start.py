@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -13,6 +15,7 @@ from bot.handlers.registration import start_registration
 from bot.templates import render
 from bot.validators import validate_team_id
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -30,27 +33,32 @@ async def cmd_start_deep(
         return
 
     if validate_team_id(team_id) is not None:
+        logger.info("user %s: invalid deep-link payload %r", participant.id, team_id)
         await show_menu(message, conn)
         return
 
     existing = await db_teams.get_team_by_participant(conn, participant.id)
     if existing:
+        logger.info("user %s: deep link while already in team %s", participant.id, existing.id)
         await message.answer(render("error_already_in_team"), parse_mode="HTML")
         await show_menu(message, conn)
         return
 
     team = await db_teams.get_team(conn, team_id)
     if team is None:
+        logger.info("user %s: deep-link team %s not found", participant.id, team_id)
         await message.answer(render("error_team_not_found"), parse_mode="HTML")
         await show_menu(message, conn)
         return
 
     if len(team.members) >= 3:
+        logger.info("user %s: deep-link team %s is full", participant.id, team_id)
         await message.answer(render("error_team_full"), parse_mode="HTML")
         await show_menu(message, conn)
         return
 
     await db_teams.add_member(conn, team_id, participant.id)
+    logger.info("user %s: joined team %s via deep link", participant.id, team_id)
     await message.answer(
         render("team_joined", team_name=team.name), parse_mode="HTML"
     )

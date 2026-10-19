@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -12,6 +14,7 @@ from bot.keyboards import back_to_menu_kb
 from bot.templates import render
 from bot.validators import validate_team_name
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -24,6 +27,7 @@ async def on_create(cb: CallbackQuery, state: FSMContext, conn: asyncpg.Connecti
     await cb.answer()
     existing = await db_teams.get_team_by_participant(conn, cb.from_user.id)
     if existing:
+        logger.info("user %s: create team while already in team %s", cb.from_user.id, existing.id)
         await cb.message.answer(render("error_already_in_team"), parse_mode="HTML")  # type: ignore[union-attr]
         return
     await state.set_state(CreateTeamFSM.name)
@@ -35,13 +39,16 @@ async def on_team_name(message: Message, state: FSMContext, conn: asyncpg.Connec
     name = (message.text or "").strip()
     err = validate_team_name(name)
     if err:
+        logger.info("user %s: invalid team name %r", message.from_user.id, name)  # type: ignore[union-attr]
         await message.answer(err)
         return
     if await db_teams.team_name_exists(conn, name):
+        logger.info("user %s: team name %r taken", message.from_user.id, name)  # type: ignore[union-attr]
         await message.answer(render("error_team_name_taken"), parse_mode="HTML")
         return
 
     team = await db_teams.create_team(conn, name, message.from_user.id)  # type: ignore[union-attr]
+    logger.info("user %s: created team %s %r", message.from_user.id, team.id, team.name)  # type: ignore[union-attr]
     bot_me = await message.bot.me()  # type: ignore[union-attr]
     await message.answer(
         render("team_created", team_name=team.name, team_id=team.id, bot_username=bot_me.username),

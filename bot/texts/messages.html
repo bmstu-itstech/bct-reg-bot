@@ -1,3 +1,7 @@
+{% block bot_description %}
+По вопросам регистрации и мероприятия: @zhikhkirill
+{% endblock %}
+
 {% block consent %}
 Регистрация на <b>Bauman Code Tournament</b>.
 
@@ -90,6 +94,18 @@ ID команды: <code>{{ team_id }}</code>
 
 {% block error_already_registered %}
 Участник с такими данными уже зарегистрирован. Если это ошибка, напишите организаторам.
+{% endblock %}
+
+{% block error_stale_button %}
+Эта кнопка больше не активна. Отправьте /start.
+{% endblock %}
+
+{% block error_unhandled_message %}
+Не понял сообщение. Воспользуйтесь кнопками выше или отправьте /start.
+{% endblock %}
+
+{% block error_internal %}
+Что-то пошло не так. Попробуйте ещё раз или напишите @zhikhkirill.
 {% endblock %}
 
 {% block error_not_in_team %}

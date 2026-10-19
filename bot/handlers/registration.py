@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -14,6 +16,7 @@ from bot.db import participants as db_part
 from bot.db import teams as db_teams
 from bot.handlers.menu import show_menu
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -27,6 +30,7 @@ class RegFSM(StatesGroup):
 
 
 async def start_registration(message: Message, state: FSMContext) -> None:
+    logger.info("user %s: registration started", message.from_user.id)  # type: ignore[union-attr]
     await state.set_state(RegFSM.consent)
     await message.answer(
         render("consent", pd_policy_url=settings.pd_policy_url),
@@ -52,6 +56,7 @@ async def on_consent(cb: CallbackQuery, state: FSMContext) -> None:
 async def on_full_name(message: Message, state: FSMContext) -> None:
     err = validate_full_name(message.text or "")
     if err:
+        logger.info("user %s: invalid full name", message.from_user.id)  # type: ignore[union-attr]
         await message.answer(err)
         return
     name = " ".join((message.text or "").split())
@@ -65,6 +70,7 @@ async def on_full_name(message: Message, state: FSMContext) -> None:
 @router.callback_query(RegFSM.affiliation_type, F.data == "aff_bmstu")
 async def on_bmstu(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
+    await cb.message.edit_reply_markup(reply_markup=None)  # type: ignore[union-attr]
     await state.update_data(affiliation_type="bmstu")
     await state.set_state(RegFSM.bmstu_group)
     await cb.message.answer(render("ask_bmstu_group"), parse_mode="HTML")  # type: ignore[union-attr]
@@ -73,6 +79,7 @@ async def on_bmstu(cb: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(RegFSM.affiliation_type, F.data == "aff_other")
 async def on_other(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
+    await cb.message.edit_reply_markup(reply_markup=None)  # type: ignore[union-attr]
     await state.update_data(affiliation_type="other")
     await state.set_state(RegFSM.other_university)
     await cb.message.answer(render("ask_university"), parse_mode="HTML")  # type: ignore[union-attr]
@@ -82,6 +89,7 @@ async def on_other(cb: CallbackQuery, state: FSMContext) -> None:
 async def on_group(message: Message, state: FSMContext, conn: asyncpg.Connection) -> None:
     err = validate_group(message.text or "")
     if err:
+        logger.info("user %s: invalid group %r", message.from_user.id, message.text)  # type: ignore[union-attr]
         await message.answer(err)
         return
     await state.update_data(bmstu_group=(message.text or "").strip().upper())
@@ -92,6 +100,7 @@ async def on_group(message: Message, state: FSMContext, conn: asyncpg.Connection
 async def on_university(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
     if not text:
+        logger.info("user %s: empty university", message.from_user.id)  # type: ignore[union-attr]
         await message.answer("Название вуза не может быть пустым.")
         return
     await state.update_data(university=text)
@@ -103,6 +112,7 @@ async def on_university(message: Message, state: FSMContext) -> None:
 async def on_passport(message: Message, state: FSMContext, conn: asyncpg.Connection) -> None:
     passport = normalize_passport(message.text or "")
     if passport is None:
+        logger.info("user %s: invalid passport", message.from_user.id)  # type: ignore[union-attr]
         await message.answer("Неверный формат. Введите серию и номер паспорта РФ: 4 цифры и 6 цифр.")
         return
     await state.update_data(passport=passport)
@@ -124,11 +134,13 @@ async def _finish_registration(
             university=data.get("university"),
             passport=data.get("passport"),
         )
-    except asyncpg.UniqueViolationError:
+    except asyncpg.UniqueViolationError as e:
+        logger.warning("user %s: duplicate registration (%s)", message.from_user.id, e.constraint_name)  # type: ignore[union-attr]
         await message.answer(render("error_already_registered"), parse_mode="HTML")
         await state.clear()
         return
 
+    logger.info("user %s: registered (%s)", message.from_user.id, data["affiliation_type"])  # type: ignore[union-attr]
     await message.answer(
         render("registration_complete", full_name=data["full_name"]),
         parse_mode="HTML",
@@ -147,13 +159,17 @@ async def _try_join_team(
     message: Message, conn: asyncpg.Connection, team_id: str
 ) -> None:
     team = await db_teams.get_team(conn, team_id)
+    user_id = message.from_user.id  # type: ignore[union-attr]
     if team is None:
+        logger.info("user %s: deep-link team %s not found", user_id, team_id)
         await message.answer(render("error_team_not_found"), parse_mode="HTML")
         return
     if len(team.members) >= 3:
+        logger.info("user %s: deep-link team %s is full", user_id, team_id)
         await message.answer(render("error_team_full"), parse_mode="HTML")
         return
-    await db_teams.add_member(conn, team_id, message.from_user.id)  # type: ignore[union-attr]
+    await db_teams.add_member(conn, team_id, user_id)
+    logger.info("user %s: joined team %s via deep link", user_id, team_id)
     await message.answer(
         render("deep_link_after_reg", team_name=team.name),
         parse_mode="HTML",
