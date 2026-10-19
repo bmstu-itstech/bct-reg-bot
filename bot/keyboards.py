@@ -9,7 +9,7 @@ def consent_kb() -> InlineKeyboardMarkup:
 
 def affiliation_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="МГТУ им. Баумана", callback_data="aff_bmstu")],
+        [InlineKeyboardButton(text="МГТУ им. Н.Э. Баумана", callback_data="aff_bmstu")],
         [InlineKeyboardButton(text="Другой вуз", callback_data="aff_other")],
     ])
 
