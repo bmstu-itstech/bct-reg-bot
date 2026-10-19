@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from bot.templates import render
-from bot.validators import normalize_passport, validate_full_name, validate_group
+import datetime
+
+from bot.validators import normalize_passport, validate_birthdate, validate_full_name, validate_group
 
 for group in Path(__file__).with_name("groups.csv").read_text("utf-8").split():
     assert validate_group(group) is None, group
@@ -13,6 +15,10 @@ assert normalize_passport("4510123456") == "4510 123456"
 assert normalize_passport(" 4510 123456 ") == "4510 123456"
 for bad in ("451 0123456", "4510-123456", "45101234567", "AB10 123456", ""):
     assert normalize_passport(bad) is None, bad
+
+assert validate_birthdate(" 01.09.2005 ") == datetime.date(2005, 9, 1)
+for bad in ("2005-09-01", "31.02.2005", "01.09.1900", datetime.date.today().strftime("%d.%m.%Y"), ""):
+    assert isinstance(validate_birthdate(bad), str), bad
 
 assert validate_full_name("Иванов  Иван Иванович") is None
 assert validate_full_name("Иванов") is not None

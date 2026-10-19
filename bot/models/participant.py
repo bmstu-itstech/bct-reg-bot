@@ -13,4 +13,5 @@ class Participant:
     bmstu_group: str | None = None
     university: str | None = None
     passport: str | None = None
+    birthdate: datetime.date | None = None
     created_at: datetime.datetime | None = None

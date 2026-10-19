@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 
 from aiogram import Router, F
@@ -11,7 +12,7 @@ import asyncpg
 from bot.config import settings
 from bot.keyboards import consent_kb, affiliation_kb
 from bot.templates import render
-from bot.validators import validate_full_name, validate_group, normalize_passport
+from bot.validators import validate_full_name, validate_birthdate, validate_group, normalize_passport
 from bot.db import participants as db_part
 from bot.db import teams as db_teams
 from bot.handlers.menu import show_menu
@@ -23,6 +24,7 @@ router = Router()
 class RegFSM(StatesGroup):
     consent = State()
     full_name = State()
+    birthdate = State()
     affiliation_type = State()
     bmstu_group = State()
     other_university = State()
@@ -61,6 +63,18 @@ async def on_full_name(message: Message, state: FSMContext) -> None:
         return
     name = " ".join((message.text or "").split())
     await state.update_data(full_name=name)
+    await state.set_state(RegFSM.birthdate)
+    await message.answer(render("ask_birthdate"), parse_mode="HTML")
+
+
+@router.message(RegFSM.birthdate)
+async def on_birthdate(message: Message, state: FSMContext) -> None:
+    result = validate_birthdate(message.text or "")
+    if isinstance(result, str):
+        logger.info("user %s: invalid birthdate", message.from_user.id)  # type: ignore[union-attr]
+        await message.answer(result)
+        return
+    await state.update_data(birthdate=result.isoformat())
     await state.set_state(RegFSM.affiliation_type)
     await message.answer(
         render("ask_affiliation"), reply_markup=affiliation_kb(), parse_mode="HTML"
@@ -129,6 +143,7 @@ async def _finish_registration(
             tg_id=message.from_user.id,  # type: ignore[union-attr]
             username=message.from_user.username if message.from_user else None,
             full_name=data["full_name"],
+            birthdate=datetime.date.fromisoformat(data["birthdate"]),
             affiliation_type=data["affiliation_type"],
             bmstu_group=data.get("bmstu_group"),
             university=data.get("university"),

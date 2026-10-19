@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime
+
 import asyncpg
 
 from bot.models.participant import Participant
@@ -19,6 +21,7 @@ async def create_participant(
     tg_id: int,
     username: str | None,
     full_name: str,
+    birthdate: datetime.date,
     affiliation_type: str,
     bmstu_group: str | None = None,
     university: str | None = None,
@@ -26,10 +29,10 @@ async def create_participant(
 ) -> None:
     await conn.execute(
         """
-        INSERT INTO participants (id, username, full_name, affiliation_type, bmstu_group, university, passport)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO participants (id, username, full_name, birthdate, affiliation_type, bmstu_group, university, passport)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         """,
-        tg_id, username, full_name, affiliation_type, bmstu_group, university, passport,
+        tg_id, username, full_name, birthdate, affiliation_type, bmstu_group, university, passport,
     )
 
 
@@ -42,5 +45,6 @@ def _row_to_participant(row: asyncpg.Record) -> Participant:
         bmstu_group=row["bmstu_group"],
         university=row["university"],
         passport=row["passport"],
+        birthdate=row["birthdate"],
         created_at=row["created_at"],
     )

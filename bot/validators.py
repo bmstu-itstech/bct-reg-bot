@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import re
 
 _FULL_NAME_RE = re.compile(r"^[а-яА-ЯёЁ-]+(\s+[а-яА-ЯёЁ-]+)+$")
@@ -17,6 +18,18 @@ def validate_full_name(value: str) -> str | None:
     if not _FULL_NAME_RE.match(value):
         return "ФИО должно содержать минимум 2 слова и только кириллицу/дефис."
     return None
+
+
+def validate_birthdate(value: str) -> datetime.date | str:
+    try:
+        dt = datetime.datetime.strptime(value.strip(), "%d.%m.%Y").date()
+    except ValueError:
+        return "Неверный формат даты. Используйте ДД.ММ.ГГГГ."
+    today = datetime.date.today()
+    age = today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
+    if not 10 <= age <= 100:
+        return "Проверьте дату рождения."
+    return dt
 
 
 def validate_group(value: str) -> str | None:
