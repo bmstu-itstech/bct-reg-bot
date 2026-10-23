@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from bot.config import settings
 from bot.db.pool import create_pool, close_pool
@@ -21,7 +22,8 @@ async def main() -> None:
 
     await create_pool()
     storage = PgFSMStorage()
-    bot = Bot(token=settings.telegram_token)
+    session = AiohttpSession(proxy=settings.proxy_url) if settings.proxy_url else None
+    bot = Bot(token=settings.telegram_token, session=session)
     await bot.set_my_description(render("bot_description"))
     dp = Dispatcher(storage=storage)
 

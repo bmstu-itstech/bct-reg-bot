@@ -6,6 +6,6 @@ class Settings(BaseSettings):
     telegram_token: str
     log_level: str = "debug"
     pd_policy_url: str = ""
-
+    proxy_url: str = ""
 
 settings = Settings()  # type: ignore[call-arg]
